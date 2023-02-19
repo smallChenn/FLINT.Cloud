@@ -537,10 +537,10 @@ def status():
     input_dir, output_dir = get_simulation_dirs(title)
 
     # Check if output file exists to determine status
-    if os.path.isfile(output_dir):
+    if os.path.exists(output_dir):
         message = "Output is ready to download at /gcbm/download"
     else:
-        message = "In progress"
+        message = "In Progress"
 
     return {"finished": message}
 
