@@ -444,6 +444,13 @@ def launch_run(title, input_dir):
     }
 
 
+def get_simulation_dirs(title):
+    base_dir = os.getcwd()
+    input_dir = os.path.join(base_dir, "input", title)
+    output_dir = os.path.join(base_dir, "output", f"{title}.zip")
+    return input_dir, output_dir
+
+    
 @app.route("/gcbm/download", methods=["POST"])
 def gcbm_download():
     """
@@ -452,7 +459,10 @@ def gcbm_download():
     tags:
             - gcbm
     responses:
-            200:
+    	    200:
+    		description: The input and output files are successfully downloaded.
+  	    404:
+    		description: The simulation is not found.
     parameters:
                     - in: body
             name: title
@@ -461,30 +471,18 @@ def gcbm_download():
                     type: string
             description: GCBM Download FLINT
     """
-    # Default title = simulation
-    title = request.form.get("title") or "simulation"
-    # Sanitize title
+    title = request.form.get("title", "simulation")
     title = "".join(c for c in title if c.isalnum())
 
-    output_dir = f"{os.getcwd()}/output/{title}.zip"
-    input_dir = f"{os.getcwd()}/input/{title}"
+    input_dir, output_dir = get_simulation_dirs(title)
 
-    # if the title has an input simulation and there is no output simulation then they should check the status.
-    if not os.path.exists(f"{output_dir}") and os.path.exists(f"{input_dir}"):
-        return {
-            "message": "You simulation is currently running, check the status via /gcbm/status"
-        }
+    if os.path.exists(output_dir):
+        return send_file(output_dir, as_attachment=True, attachment_filename=f"{title}.zip")
 
-    # if there is no input simulation and no output simulation then the simulation does not exist.
-    elif not os.path.exists(f"{output_dir}") and not os.path.exists(f"{input_dir}"):
-        return {
-            "message": "You don't have a simulation with this title kindly check the title and try again"
-        }
+    if not os.path.exists(input_dir):
+        return abort(404, description="Simulation not found")
 
-    return send_file(
-        f"{os.getcwd()}/output/{title}.zip",
-        attachment_filename="{title}.zip",
-    )
+    return {"message": "Simulation in progress. Check status using /gcbm/status"}
 
 
 @app.route("/gcbm/list", methods=["GET"])
@@ -521,6 +519,7 @@ def status():
             - gcbm
     responses:
             200:
+            	description: Successful response with status of simulation
     parameters:
                     - in: body
             name: title
@@ -529,15 +528,19 @@ def status():
                     type: string
             description: Get status of simulation
     """
-    # Default title = simulation
-    title = request.form.get("title") or "simulation"
+    # Get simulation title from query parameters
+    title = request.args.get('title', 'simulation')
     # Sanitize title
     title = "".join(c for c in title if c.isalnum())
 
-    if os.path.isfile(f"{os.getcwd()}/input/{title}/output.zip"):
-        message = "Output is ready to download at gcbm/download"
+    # Get input and output directories for simulation
+    input_dir, output_dir = get_simulation_dirs(title)
+
+    # Check if output file exists to determine status
+    if os.path.isfile(output_dir):
+        message = "Output is ready to download at /gcbm/download"
     else:
-        message = "In Progress"
+        message = "In progress"
 
     return {"finished": message}
 
